@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Maatii</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+
+        .qabxii-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+            .qabxii-table th, .qabxii-table td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+
+            .qabxii-table th {
+                background: #3498db;
+                color: white;
+            }
+
+        .status-jira {
+            color: green;
+            font-weight: bold;
+        }
+
+        .status-hafe {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hordoffii Maatii</h1>
+
+    {% for barataa in barattoota %}
+    <div class="card">
+        <h2>Barataa: {{ barataa.maqaa_guutuu }} ({{ barataa.kutaa }})</h2>
+
+        <h3>Qabxii Qorumsaa</h3>
+        <table class="qabxii-table">
+            <tr><th>Gosa Barumsaa</th><th>30%</th><th>70%</th><th>100%</th></tr>
+            {% for q in barataa.qabxii_set.all %}
+            <tr>
+                <td>{{ q.gosa_barumsaa }}</td>
+                <td>{{ q.qabxii_mid }}</td>
+                <td>{{ q.qabxii_final }}</td>
+                <td><strong>{{ q.qabxii_mid|add:q.qabxii_final }}</strong></td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <h3>Hordoffii Hafittoo</h3>
+        <ul>
+            {% for h in barataa.hafittoo_set.all %}
+            <li>
+                {{ h.guyyaa }}:
+                {% if h.jira %}<span class="status-jira">Dhufeera</span>
+                {% else %}<span class="status-hafe">Hafteera</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% empty %}
+    <p>Barataan maatii kanaan walqabatu hin jiru.</p>
+    {% endfor %}
+</body>
+</html>
