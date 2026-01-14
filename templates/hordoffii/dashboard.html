@@ -1,91 +1,150 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Maatii</title>
+import streamlit as st
+import pandas as pd
+import os
+import io
+import requests
+from datetime import datetime
+from fpdf import FPDF
+
+# ================= 1. STYLE & DESIGN (CSS) =================
+st.set_page_config(page_title="Dadar Land Admin", page_icon="🏢", layout="wide")
+
+st.markdown("""
     <style>
-        body {
-            font-family: Arial;
-            background: #f4f4f4;
-            margin: 0;
-            padding: 10px;
-        }
+    /* Halluu Background guutuu */
+    .stApp { background: linear-gradient(135deg, #f1f8e9 0%, #ffffff 100%); }
+    
+    /* Sidebar bifa ammayyaa */
+    [data-testid="stSidebar"] { background-color: #1b5e20 !important; border-right: 2px solid #2e7d32; }
+    [data-testid="stSidebar"] * { color: #ffffff !important; font-weight: 500; }
+    
+    /* Dashboard Cards */
+    .metric-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        text-align: center;
+        border-top: 6px solid #2e7d32;
+        transition: 0.3s;
+    }
+    .metric-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+    .metric-card h4 { color: #666; margin-bottom: 5px; }
+    .metric-card h2 { color: #1b5e20; margin: 0; font-size: 32px; }
 
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        h2 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 5px;
-        }
-
-        .qabxii-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-            .qabxii-table th, .qabxii-table td {
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: left;
-            }
-
-            .qabxii-table th {
-                background: #3498db;
-                color: white;
-            }
-
-        .status-jira {
-            color: green;
-            font-weight: bold;
-        }
-
-        .status-hafe {
-            color: red;
-            font-weight: bold;
-        }
+    /* Buttons */
+    .stButton>button {
+        background: linear-gradient(90deg, #4caf50, #2e7d32);
+        color: white;
+        border-radius: 10px;
+        border: none;
+        padding: 12px;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .stButton>button:hover { opacity: 0.9; transform: scale(1.02); }
+    
+    /* Forms */
+    div.stForm {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        border: none;
+        box-shadow: 0px 10px 30px rgba(0,0,0,0.05);
+    }
     </style>
-</head>
-<body>
-    <h1>Hordoffii Maatii</h1>
+    """, unsafe_allow_html=True)
 
-    {% for barataa in barattoota %}
-    <div class="card">
-        <h2>Barataa: {{ barataa.maqaa_guutuu }} ({{ barataa.kutaa }})</h2>
+# ================= 2. DATA FUNCTIONS =================
+DATA_FILE = "dadar_final_report.txt"
+LOGO_PATH = "Adiaan/logo.png"
+COL_NAMES = ['Guyyaa', 'Maqaa_Abbaa_Dhimmaa', 'Araddaa', 'Qaxana', 'Gosa_Tajajjilaa', 'Maqaa_Ogeessa', 'Kafaltii_Taj']
+MONTH_ORDER = ["Fulbaana", "Onkololeessa", "Sadaasa", "Muddee", "Amajjii", "Guraandhala", "Bitootessa", "Eebila", "Caamsaa", "Waxabajjii", "Adooleessa", "Hagayya"]
+MONTH_MAP = {9: "Fulbaana", 10: "Onkololeessa", 11: "Sadaasa", 12: "Muddee", 1: "Amajjii", 2: "Guraandhala", 3: "Bitootessa", 4: "Eebila", 5: "Caamsaa", 6: "Waxabajjii", 7: "Adooleessa", 8: "Hagayya"}
 
-        <h3>Qabxii Qorumsaa</h3>
-        <table class="qabxii-table">
-            <tr><th>Gosa Barumsaa</th><th>30%</th><th>70%</th><th>100%</th></tr>
-            {% for q in barataa.qabxii_set.all %}
-            <tr>
-                <td>{{ q.gosa_barumsaa }}</td>
-                <td>{{ q.qabxii_mid }}</td>
-                <td>{{ q.qabxii_final }}</td>
-                <td><strong>{{ q.qabxii_mid|add:q.qabxii_final }}</strong></td>
-            </tr>
-            {% endfor %}
-        </table>
+def load_data():
+    if not os.path.exists(DATA_FILE) or os.stat(DATA_FILE).st_size == 0:
+        return pd.DataFrame(columns=COL_NAMES)
+    df = pd.read_csv(DATA_FILE, sep="|", names=COL_NAMES, header=None, encoding='utf-8')
+    df['Date_Obj'] = pd.to_datetime(df['Guyyaa'], format='%d/%m/%Y', errors='coerce')
+    df['Ji\'a'] = df['Date_Obj'].dt.month.map(MONTH_MAP)
+    return df
 
-        <h3>Hordoffii Hafittoo</h3>
-        <ul>
-            {% for h in barataa.hafittoo_set.all %}
-            <li>
-                {{ h.guyyaa }}:
-                {% if h.jira %}<span class="status-jira">Dhufeera</span>
-                {% else %}<span class="status-hafe">Hafteera</span>{% endif %}
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% empty %}
-    <p>Barataan maatii kanaan walqabatu hin jiru.</p>
-    {% endfor %}
-</body>
-</html>
+def save_data(df_to_save):
+    df_to_save[COL_NAMES].to_csv(DATA_FILE, sep="|", index=False, header=False, encoding="utf-8")
+
+# ================= 3. UI LOGIC =================
+
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+# --- LOGIN SCREEN ---
+if not st.session_state.logged_in:
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.write("")
+        st.write("")
+        if os.path.exists(LOGO_PATH):
+            st.image(LOGO_PATH, width=120)
+        st.markdown("<h2 style='text-align:center; color:#1b5e20;'>Dadar Land Admin</h2>", unsafe_allow_html=True)
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.button("SEENI"):
+            if u == "admin" and p == "123":
+                st.session_state.logged_in = True
+                st.rerun()
+            else: st.error("Dogoogora!")
+
+# --- MAIN APP ---
+else:
+    df = load_data()
+    
+    with st.sidebar:
+        if os.path.exists(LOGO_PATH): st.image(LOGO_PATH, width=80)
+        st.title("Main Menu")
+        menu = st.radio("FILANNOO", ["📊 Dashboard", "📝 Galmee Haaraa", "📈 Gabaasa", "🏆 Badhaasa", "🔍 Edit", "Ba'i"])
+        st.write("---")
+        if st.button("🚪 Log Out"):
+            st.session_state.logged_in = False
+            st.rerun()
+
+    if menu == "📊 Dashboard":
+        st.markdown("<h2 style='color:#1b5e20;'>📊 Dashboard Raawwii Hojii</h2>", unsafe_allow_html=True)
+        st.divider()
+        
+        # Dashboard Cards with Graphical UI
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown(f"<div class='metric-card'><h4>💰 Galii Waliigalaa</h4><h2>{df['Kafaltii_Taj'].sum():,.0f}</h2><p>ETB</p></div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div class='metric-card'><h4>👥 Maamiltoota</h4><h2>{len(df)}</h2><p>Galmeeffaman</p></div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div class='metric-card'><h4>👷 Ogeeyyii</h4><h2>{df['Maqaa_Ogeessa'].nunique()}</h2><p>Aktiiwii</p></div>", unsafe_allow_html=True)
+        
+        st.write("")
+        st.subheader("📈 Galii Ji'aan")
+        if not df.empty and "Ji'a" in df.columns:
+            chart_data = df.groupby('Ji\'a')['Kafaltii_Taj'].sum().reindex(MONTH_ORDER).fillna(0)
+            st.area_chart(chart_data)
+
+    elif menu == "📝 Galmee Haaraa":
+        st.markdown("<h2 style='color:#1b5e20;'>📝 Galmee Tajaajilaa Haaraa</h2>", unsafe_allow_html=True)
+        with st.form("reg_form"):
+            c1, c2 = st.columns(2)
+            name = c1.text_input("Maqaa Abbaa Dhimmaa")
+            ara = c2.text_input("Araddaa")
+            ogeessa = c1.text_input("Maqaa Ogeessa")
+            fee = c2.number_input("Kafaltii (ETB)", min_value=0.0)
+            taj = st.selectbox("Gosa Tajaajilaa", ["Jijjiirraa Maqaa", "Liizii", "Kaartaa", "Kafaltii Itti Fayyadam"])
+            
+            if st.form_submit_button("💾 Galmeessi"):
+                if name and ogeessa:
+                    new_row = [datetime.now().strftime('%d/%m/%Y'), name, ara, "Q-1", taj, ogeessa, fee]
+                    df = pd.concat([df, pd.DataFrame([new_row], columns=COL_NAMES)], ignore_index=True)
+                    save_data(df)
+                    st.success("Milkiin Galmeeffameera!")
+                else: st.error("Maaloo odeeffannoo guutuu galchaa!")
+
+    elif menu == "Ba'i":
+        st.session_state.logged_in = False
+        st.rerun()
